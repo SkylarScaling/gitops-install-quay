@@ -1,0 +1,15 @@
+apiVersion: quay.redhat.com/v1
+kind: QuayRegistry
+metadata:
+  name: quay-registry
+  namespace: local-quay
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  configBundleSecret: init-config-bundle-secret
+  components:
+    - kind: objectstorage
+      managed: true
+    - kind: tls
+      managed: true
