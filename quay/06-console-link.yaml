@@ -1,0 +1,80 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: create-quay-console-link
+  namespace: local-quay
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: quay-console-link-creator
+rules:
+  - apiGroups: ["route.openshift.io"]
+    resources: ["routes"]
+    verbs: ["get", "list"]
+  - apiGroups: ["console.openshift.io"]
+    resources: ["consolelinks"]
+    verbs: ["get", "create", "update", "patch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: quay-console-link-creator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: quay-console-link-creator
+subjects:
+  - kind: ServiceAccount
+    name: create-quay-console-link
+    namespace: local-quay
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-quay-console-link
+  namespace: local-quay
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  template:
+    spec:
+      serviceAccountName: create-quay-console-link
+      restartPolicy: OnFailure
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: create-console-link
+          image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
+          imagePullPolicy: Always
+          command:
+            - /bin/bash
+            - -c
+            - |
+              echo "Waiting for Quay route..."
+              until oc get route -n local-quay -l quay-operator/quayregistry=quay-registry &>/dev/null; do
+                sleep 10
+              done
+
+              QUAY_HOST=$(oc get route -n local-quay \
+                -l quay-operator/quayregistry=quay-registry \
+                -o jsonpath='{.items[0].spec.host}')
+
+              echo "Creating ConsoleLink for https://${QUAY_HOST}"
+              oc apply -f - <<EOF
+              apiVersion: console.openshift.io/v1
+              kind: ConsoleLink
+              metadata:
+                name: quay-registry
+              spec:
+                location: ApplicationMenu
+                applicationMenu:
+                  section: Red Hat Applications
+                  imageURL: https://www.redhat.com/misc/favicon.ico
+                href: "https://${QUAY_HOST}"
+                text: Red Hat Quay
+              EOF
