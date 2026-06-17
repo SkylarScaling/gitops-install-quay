@@ -74,7 +74,7 @@ spec:
                 location: ApplicationMenu
                 applicationMenu:
                   section: Red Hat Applications
-                  imageURL: https://www.redhat.com/misc/favicon.ico
+                  imageURL: https://raw.githubusercontent.com/quay/quay/master/static/img/quay_favicon.png
                 href: "https://${QUAY_HOST}"
                 text: Red Hat Quay
               EOF
